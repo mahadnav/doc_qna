@@ -148,8 +148,8 @@
 
 import streamlit as st
 import pandas as pd
-from langchain.document_loaders import PyPDFLoader  # Replacing fitz
-from docling import DoclingClient  # Ensure you have Docling installed
+from langchain.document_loaders import PyPDFLoader
+from docling import DoclingClient
 import tempfile
 
 # Initialize Docling Client (replace 'your_api_key' with an actual API key)

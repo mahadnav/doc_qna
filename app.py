@@ -47,7 +47,7 @@ def load_document(file=None, url=None):
         add_to_sidebar(url)
         return documents
 
-def generate_response(documents, query_text):
+def generate_response(documents, hf_api_key, query_text):
     """Generate a response from the loaded documents."""
     try:
         text_splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=100)
@@ -60,7 +60,7 @@ def generate_response(documents, query_text):
             llm=HuggingFaceHub(
                 repo_id="tiiuae/falcon-7b-instruct",  # Example free model
                 model_kwargs={"temperature": 0.5, "max_length": 150},
-                huggingfacehub_api_token=st.session_state['hf_api_key']
+                huggingfacehub_api_token=hf_api_key
             ),
             chain_type='stuff',
             retriever=retriever

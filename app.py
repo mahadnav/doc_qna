@@ -1,7 +1,7 @@
 import streamlit as st
-from langchain.llms import OpenAI
+from langchain.llms import HuggingFaceHub
 from langchain.text_splitter import CharacterTextSplitter
-from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain.chains import RetrievalQA, AnalyzeDocumentChain
 from langchain.document_loaders import PyPDFLoader, WebBaseLoader
@@ -22,10 +22,8 @@ if 'document_list' not in st.session_state:
     st.session_state['document_list'] = []
 if 'query_history' not in st.session_state:
     st.session_state['query_history'] = []
-if 'api_key' not in st.session_state:
-    st.session_state['api_key'] = ''
-if 'together_api_key' not in st.session_state:
-    st.session_state['together_api_key'] = ''
+if 'hf_api_key' not in st.session_state:
+    st.session_state['hf_api_key'] = ''
 
 def add_to_sidebar(doc_name):
     """Update the sidebar with the new document."""
@@ -48,38 +46,24 @@ def load_document(file=None, url=None):
         add_to_sidebar(url)
         return documents
 
-def generate_response(documents, openai_api_key, query_text):
+def generate_response(documents, hf_api_key, query_text):
     """Generate a response from the loaded documents."""
     try:
         text_splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=100)
         texts = text_splitter.split_documents(documents)
-        embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
+        embeddings = HuggingFaceEmbeddings()
         db = Chroma.from_documents(texts, embeddings, persist_directory="chromadb_storage")
         db.persist()
         retriever = db.as_retriever(search_kwargs={"k": 3})  # Fetch top 3 relevant chunks
         qa = RetrievalQA.from_chain_type(
-            llm=OpenAI(
-                openai_api_key=openai_api_key,
-                max_tokens=150  # Limit response length
+            llm=HuggingFaceHub(
+                repo_id="tiiuae/falcon-7b-instruct",  # Example free model
+                model_kwargs={"temperature": 0.5, "max_length": 150}
             ),
             chain_type='stuff',
             retriever=retriever
         )
         return qa.run(query_text)
-    except Exception as e:
-        return f"Error: {str(e)}"
-
-def generate_code(prompt, together_api_key):
-    """Generate code using Together.ai and Code Llama."""
-    try:
-        url = "https://api.together.ai/code"
-        headers = {"Authorization": f"Bearer {together_api_key}"}
-        data = {"prompt": prompt, "model": "code-llama"}
-        response = requests.post(url, headers=headers, json=data)
-        if response.status_code == 200:
-            return response.json().get('code', "No code returned")
-        else:
-            return f"Error: {response.json().get('message', 'Unknown error')}"
     except Exception as e:
         return f"Error: {str(e)}"
 
@@ -90,14 +74,13 @@ def summarize_document(documents):
 
 # Sidebar
 with st.sidebar:
-    st.session_state['api_key'] = st.text_input("OpenAI API Key", type="password", placeholder="Enter your OpenAI API key")
-    st.session_state['together_api_key'] = st.text_input("Together.ai API Key", type="password", placeholder="Enter your Together.ai API key")
+    st.session_state['hf_api_key'] = st.text_input("Hugging Face API Key", type="password", placeholder="Enter your Hugging Face API key")
     st.write("**Loaded Documents**")
     for doc in st.session_state['document_list']:
         st.write(f"- {doc}")
 
 # Tabbed layout
-tabs = st.tabs(["Document Q&A", "Code Generation", "Document Summarization", "Download Document"])
+tabs = st.tabs(["Document Q&A", "Document Summarization", "Download Document"])
 
 # Tab 1: Document Q&A
 with tabs[0]:
@@ -110,32 +93,22 @@ with tabs[0]:
     elif uploaded_url:
         documents = load_document(url=uploaded_url)
     query_text = st.text_input('Enter your question:', placeholder='Ask something about the loaded documents.', disabled=not documents)
-    if st.session_state['api_key'] and query_text and documents:
+    if st.session_state['hf_api_key'] and query_text and documents:
         with st.spinner('Generating response...'):
-            response = generate_response(documents, st.session_state['api_key'], query_text)
+            response = generate_response(documents, st.session_state['hf_api_key'], query_text)
             st.session_state['query_history'].append((query_text, response))
             st.write("**Response:**", response)
 
-# Tab 2: Code Generation
+# Tab 2: Document Summarization
 with tabs[1]:
-    st.title("Code Generation with Together.ai and Code Llama")
-    code_prompt = st.text_area("Enter your coding prompt:")
-    if st.session_state['together_api_key'] and code_prompt:
-        with st.spinner("Generating code..."):
-            generated_code = generate_code(code_prompt, st.session_state['together_api_key'])
-            st.code(generated_code, language="python")
-
-# Tab 3: Document Summarization
-with tabs[2]:
     st.title("Summarize Documents")
     if documents:
         if st.button("Summarize Document"):
             summary = summarize_document(documents)
             st.write("**Summary:**", summary)
 
-
 # Tab 3: Download Document
-with tabs[3]:
+with tabs[2]:
     st.title("Download Loaded Documents")
     if documents:
         download_button = st.download_button(

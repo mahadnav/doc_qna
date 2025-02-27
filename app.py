@@ -148,7 +148,7 @@
 
 import streamlit as st
 import pandas as pd
-import fitz  # PyMuPDF
+from langchain.document_loaders import PyPDFLoader  # Replacing fitz
 from docling import DoclingClient  # Ensure you have Docling installed
 import tempfile
 
@@ -167,30 +167,29 @@ def add_to_sidebar(doc_name):
         st.session_state['document_list'].append(doc_name)
 
 def extract_text_from_pdf(pdf_file):
-    text = ""
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
         temp_file.write(pdf_file.read())
         temp_file_path = temp_file.name
-    with fitz.open(temp_file_path) as doc:
-        for page in doc:
-            text += page.get_text("text")
-    return text
+    loader = PyPDFLoader(temp_file_path)
+    documents = loader.load()
+    text = "\n".join([doc.page_content for doc in documents])
+    return text if text else "No text found in the document."
 
 def extract_text_from_excel(excel_file):
     df = pd.read_excel(excel_file, sheet_name=None)  # Read all sheets
     text = ""
     for sheet_name, sheet in df.items():
         text += sheet.to_string(index=False) + "\n"
-    return text
+    return text if text.strip() else "No data found in the Excel file."
 
 def summarize_document(text):
     """Summarize the document using Docling."""
-    return docling_client.summarize(text)
+    return docling_client.summarize(text) if text else "No content available to summarize."
 
 def extract_quantitative_data(excel_file):
     """Extract numerical data from an Excel file."""
     df = pd.read_excel(excel_file, sheet_name=None)
-    return df
+    return df if df else "No quantitative data found."
 
 
 st.set_page_config(page_title='📄 Docling-Powered Q&A App', layout="wide")
@@ -218,12 +217,15 @@ tab1, tab2, tab3 = st.tabs(["Document Q&A", "Document Summary", "Quantitative Da
 
 with tab1:
     st.header("Ask Questions About the Document")
-    question = st.text_input("Enter your question:")
-    if question:
-        with st.spinner("Fetching answer..."):
-            response = docling_client.ask(document_text, question)
-            st.session_state['query_history'].append((question, response))
-            st.write("**Answer:**", response)
+    if document_text:
+        question = st.text_input("Enter your question:")
+        if question:
+            with st.spinner("Fetching answer..."):
+                response = docling_client.ask(document_text, question)
+                st.session_state['query_history'].append((question, response))
+                st.write("**Answer:**", response)
+    else:
+        st.warning("No document content available. Please upload a valid file.")
 
 with tab2:
     st.header("Document Summary")
@@ -232,15 +234,22 @@ with tab2:
             with st.spinner("Summarizing..."):
                 summary = summarize_document(document_text)
                 st.write("**Summary:**", summary)
+    else:
+        st.warning("No document content available for summarization.")
 
 with tab3:
     st.header("Extracted Quantitative Data")
-    if "excel" in uploaded_file.type:
+    if uploaded_file and "excel" in uploaded_file.type:
         with st.spinner("Extracting data..."):
             df_dict = extract_quantitative_data(uploaded_file)
-            for sheet, df in df_dict.items():
-                st.subheader(f"Sheet: {sheet}")
-                st.dataframe(df)
+            if df_dict:
+                for sheet, df in df_dict.items():
+                    st.subheader(f"Sheet: {sheet}")
+                    st.dataframe(df)
+            else:
+                st.warning("No quantitative data found in the uploaded file.")
+    else:
+        st.warning("Please upload an Excel file to extract numerical data.")
 
 # Sidebar
 with st.sidebar:

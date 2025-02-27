@@ -8,3 +8,4 @@ pysqlite3-binary
 pypdf
 docling
 openpyxl
+sentence-transformers

@@ -134,8 +134,8 @@ with tabs[2]:
             st.write("**Summary:**", summary)
 
 
-# Tab 4: Download Document
-with tabs[4]:
+# Tab 3: Download Document
+with tabs[3]:
     st.title("Download Loaded Documents")
     if documents:
         download_button = st.download_button(

@@ -6,3 +6,7 @@ tiktoken
 langchain_community
 pysqlite3-binary
 pypdf
+docling
+tempfile
+pymupdf
+openpyxl

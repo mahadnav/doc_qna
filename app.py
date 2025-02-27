@@ -10,6 +10,7 @@ import pysqlite3
 import sys
 import requests
 import docling
+from sentence_transformers import SentenceTransformer
 
 # Fix the sqlite3 module issue
 sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
